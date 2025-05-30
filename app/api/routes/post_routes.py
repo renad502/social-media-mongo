@@ -12,29 +12,17 @@ router = APIRouter(prefix="/posts", tags=["Posts"])
 
 @router.post("/", response_model=PostResponse, status_code=201)
 async def create_new_post(post: PostCreate, current_user: dict = Depends(get_current_user)):
-    post = await db["posts"].find_one({"_id": ObjectId(payload.post_id)})
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found.")
-    comment = {
-        "post_id": ObjectId(payload.post_id),
+    # Assuming you're actually creating a post here, not a comment:
+    new_post = {
+        "title": post.title,
+        "content": post.content,
         "user_id": current_user["_id"],
-        "username": current_user["username"],
-        "text": payload.text,
-        "created_at": datetime.now(timezone.utc)
+        "username":current_user["username"],
+        "created_at": datetime.now(timezone.utc),
     }
-    result = await db["comments"].insert_one(comment)
-    comment["id"] = str(result.inserted_id)
-    # OneSignal Notification to post author
-    if str(post["user_id"]) != str(current_user["_id"]):
-        await send_notification_via_onesignal(
-            user_id=str(post["author_id"]),
-            heading="New Comment",
-            message=f"{current_user['username']} commented on your post."
-        )
-    # Convert ObjectIds to string before returning
-    comment["post_id"] = str(comment["post_id"])
-    comment["user_id"] = str(comment["user_id"])
-    return comment
+    result = await db["posts"].insert_one(new_post)
+    new_post["_id"] = result.inserted_id
+    return PostResponse(**new_post, id=str(new_post["_id"]), author_id=str(new_post["user_id"]))
 
 
 @router.get("/{post_id}", response_model=PostResponse)
